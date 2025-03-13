@@ -2,10 +2,9 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "your-dockerhub-username/your-app"  // Change this to your Docker Hub repo
-        EC2_USER = "ec2-user"  // Change based on your EC2 instance (e.g., ubuntu for Ubuntu)
-        EC2_IP = "your-ec2-ip"  // Replace with your EC2 public IP
-        PRIVATE_KEY = "/path/to/your-private-key.pem"  // Path to your SSH key
+        DOCKER_IMAGE = "akhilagrawal206767/your-app"  // Change this to your Docker Hub repo
+        EC2_USER = "ubuntu"  // Update if using Ubuntu ("ubuntu")
+        EC2_IP = credentials('ec2-ip')  // Store EC2 IP in Jenkins credentials
     }
 
     stages {
@@ -33,18 +32,19 @@ pipeline {
 
         stage('Deploy to EC2') {
             steps {
-                script {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no -i ${PRIVATE_KEY} ${EC2_USER}@${EC2_IP} << EOF
-                        docker stop my-container || true
-                        docker rm my-container || true
-                        docker pull ${DOCKER_IMAGE}
-                        docker run -d -p 8000:8000 --name my-container ${DOCKER_IMAGE}
-                    EOF
-                    """
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-private-key', keyFileVariable: 'SSH_KEY')]) {
+                    script {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${EC2_USER}@${EC2_IP} << EOF
+                            docker stop my-container || true
+                            docker rm my-container || true
+                            docker pull ${DOCKER_IMAGE}
+                            docker run -d -p 8000:8000 --name my-container ${DOCKER_IMAGE}
+                        EOF
+                        """
+                    }
                 }
             }
         }
     }
 }
-
